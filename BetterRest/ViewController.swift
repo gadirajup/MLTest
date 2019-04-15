@@ -17,7 +17,7 @@ class ViewController: UIViewController {
         return label
     }()
     
-    lazy var wakeUpTime: UIDatePicker = {
+    let wakeUpTime: UIDatePicker = {
         let dp = UIDatePicker()
         
         var components = Calendar.current.dateComponents([.hour, .minute], from: Date())
@@ -43,6 +43,7 @@ class ViewController: UIViewController {
         s.value = 8
         s.minimumValue = 4
         s.maximumValue = 12
+        s.addTarget(self, action: #selector(handleTimeStepper), for: .valueChanged)
         return s
     }()
     
@@ -66,6 +67,7 @@ class ViewController: UIViewController {
         s.value = 1
         s.minimumValue = 1
         s.maximumValue = 20
+        s.addTarget(self, action: #selector(handleCoffeeStepper(_:)), for: .valueChanged)
         return s
     }()
     
@@ -108,20 +110,49 @@ class ViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        addTargets()
+        title = "Better Rest"
+        navigationController?.navigationBar.prefersLargeTitles = true
+        navigationItem.rightBarButtonItem = UIBarButtonItem(title: "Calculate", style: .plain, target: self, action: #selector(calculateBedtime))
     }
-    
-    fileprivate func addTargets() {
-        sleepAmountTime.addTarget(self, action: #selector(handleTimeStepper), for: .valueChanged)
-        coffeeAmountTime.addTarget(self, action: #selector(handleCoffeeStepper), for: .valueChanged)
-    }
-    
+
     @objc fileprivate func handleTimeStepper(_ sender: UIStepper) {
         sleepAmountLabel.text = String(format: "%g hours", sleepAmountTime.value)
     }
     
     @objc fileprivate func handleCoffeeStepper(_ sender: UIStepper) {
         coffeeAmountLabel.text = String(format: "%i cup(s)", Int(coffeeAmountTime.value))
+    }
+    
+    @objc fileprivate func calculateBedtime() {
+        let model = SleepCalculator()
+        
+        var title = ""
+        var message = ""
+        
+        do {
+            let prediction = try model.prediction(coffee: coffeeAmountTime.value, estimatedSleep: sleepAmountTime.value, wake: Double(getWake()))
+            let formatter = DateFormatter()
+            formatter.timeStyle = .short
+            
+            let wakeDate = wakeUpTime.date - prediction.actualSleep
+            message = formatter.string(from: wakeDate)
+            title = "Sleep @: "
+        } catch {
+            title = "Error"
+            message = "Sorry :("
+        }
+        
+        let ac = UIAlertController(title: title, message: message, preferredStyle: .alert)
+        ac.addAction(UIAlertAction(title: "Okay", style: .default, handler: nil))
+        present(ac, animated: true, completion: nil)
+    }
+    
+    fileprivate func getWake() -> Int {
+        let components = Calendar.current.dateComponents([.hour, .minute], from: wakeUpTime.date)
+        let hour = (components.hour ?? 0) * 60 * 60
+        let minutes = (components.minute ?? 0) * 60
+        
+        return hour + minutes
     }
 }
 
